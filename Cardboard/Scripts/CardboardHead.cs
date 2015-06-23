@@ -1,4 +1,5 @@
-﻿// Copyright 2014 Google Inc. All rights reserved.
+// Copyright 2014 Google Inc. All rights reserved.
+// Copyright 2015 Caspian Maclean.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -21,6 +22,9 @@ public class CardboardHead : MonoBehaviour {
 
   // If set, the head transform will be relative to it.
   public Transform target;
+  public Quaternion fixQuaternion;
+  public Quaternion lastRot;
+  public bool glitchFixStarted = false;
 
   // Determine whether head updates early or late in frame.
   // Defaults to false in order to reduce latency.
@@ -63,10 +67,21 @@ public class CardboardHead : MonoBehaviour {
 
     if (trackRotation) {
       var rot = Cardboard.SDK.HeadRotation;
+      if (!glitchFixStarted) {
+        lastRot=rot;
+        fixQuaternion = Quaternion.Euler(0F,0F,0F);
+        glitchFixStarted = true;
+      }
+      if (Quaternion.Angle(rot,lastRot) > 15) {
+        var newFixQuaternion = fixQuaternion * lastRot * Quaternion.Inverse(rot);
+        //only correct y axis, cardboard will correct the other axes quickly, probably using accelerometer
+        fixQuaternion = Quaternion.Euler(0F,newFixQuaternion.eulerAngles.y, 0F);
+      }
+      lastRot=rot;
       if (target == null) {
-        transform.localRotation = rot;
+        transform.localRotation = fixQuaternion*rot;
       } else {
-        transform.rotation = rot * target.rotation;
+        transform.rotation = fixQuaternion * rot * target.rotation;
       }
     }
 
