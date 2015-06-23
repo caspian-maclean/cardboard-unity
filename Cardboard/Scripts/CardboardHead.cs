@@ -23,7 +23,8 @@ public class CardboardHead : MonoBehaviour {
   // If set, the head transform will be relative to it.
   public Transform target;
   public Quaternion fixQuaternion;
-  public Quaternion lastRot;
+  public Quaternion acceptedRot;
+  public float acceptRadius;
   public bool glitchFixStarted = false;
 
   // Determine whether head updates early or late in frame.
@@ -68,16 +69,25 @@ public class CardboardHead : MonoBehaviour {
     if (trackRotation) {
       var rot = Cardboard.SDK.HeadRotation;
       if (!glitchFixStarted) {
-        lastRot=rot;
+        acceptedRot=rot;
         fixQuaternion = Quaternion.Euler(0F,0F,0F);
         glitchFixStarted = true;
+        acceptRadius = 7F;
       }
-      if (Quaternion.Angle(rot,lastRot) > 15) {
-        var newFixQuaternion = fixQuaternion * lastRot * Quaternion.Inverse(rot);
-        //only correct y axis, cardboard will correct the other axes quickly, probably using accelerometer
-        fixQuaternion = Quaternion.Euler(0F,newFixQuaternion.eulerAngles.y, 0F);
+      acceptRadius += 5F;
+      if (Quaternion.Angle(rot,acceptedRot) <= acceptRadius) {
+        acceptedRot = rot;
+        acceptRadius = 7F;
+      } else {
+        var diffRot = acceptedRot * Quaternion.Inverse(rot);
+        var projection = Quaternion.Euler(0F, diffRot.eulerAngles.y, 0F) * rot;
+        if (Quaternion.Angle(rot,projection) <= acceptRadius) {
+          acceptedRot = rot;
+          acceptRadius = 7F;
+          fixQuaternion = Quaternion.Euler(0F,diffRot.eulerAngles.y, 0F);
+        }
       }
-      lastRot=rot;
+      rot = acceptedRot;
       if (target == null) {
         transform.localRotation = fixQuaternion*rot;
       } else {
